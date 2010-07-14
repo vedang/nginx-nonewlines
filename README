@@ -1,0 +1,3 @@
+This NginX module strips the page of all newlines ('\n', '\r' and all combinations thereof) before serving it.
+
+Evan Miller has written an excellent guide on how to write nginx modules. It can be found here: http://www.evanmiller.org/nginx-modules-guide.html
