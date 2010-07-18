@@ -20,17 +20,6 @@ typedef enum {
     state_tag_pre
 } ngx_http_no_newlines_state_e;
 
-
-/* Setup function for the no_newlines directive */
-/*
-static char *ngx_http_no_newlines (ngx_conf_t *cf,
-                                   ngx_command_t *cmd,
-                                   void *conf);
-*/
-/* Handler function */
-/*
-static ngx_int_t ngx_http_no_newlines_handler (ngx_http_request_t *r);
-*/
 /* Header filter */
 static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r);
 /* Body filter */
@@ -91,36 +80,11 @@ ngx_module_t ngx_http_no_newlines_module = {
 };
 
 
-/* What are these for? Figure it out -VM */
 static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
 
 /* Function definitions start here */
-/*
-static char *ngx_http_no_newlines (ngx_conf_t *cf,
-                                   ngx_command_t *cmd,
-                                   void *conf)
-{
-    ngx_http_core_loc_conf_t  *clcf;
-    // Mine is a filter module, do I really need a handler? -VM
-    clcf = ngx_http_conf_get_module_loc_conf (cf, ngx_http_core_module);
-    clcf->handler = ngx_http_no_newlines_handler;
-
-    return NGX_CONF_OK;
-}
-*/
- /*
-static ngx_int_t ngx_http_no_newlines_handler (ngx_http_request_t *r)
-{
-    //ngx_buf_t    *b; //Not using this right now -VM
-    ngx_chain_t   out;
-
-    return ngx_http_output_filter(r, &out);
-}
-*/
-
-
 static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf)
 {
     ngx_http_next_header_filter = ngx_http_top_header_filter;
