@@ -32,11 +32,14 @@ static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf);
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx);
 static void ngx_http_no_newlines_handle_tags (u_char *reader,
+                                              u_char *writer,
                                               ngx_http_no_newlines_ctx_t *ctx);
-/*
+
 static ngx_int_t is_tag_pre (u_char *reader);
-static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader);
-*/
+static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader,
+                                                           u_char *writer,
+                                                           ngx_http_no_newlines_ctx_t *ctx);
+
 
 /* Module directives */
 static ngx_command_t  ngx_http_no_newlines_commands[] = {
@@ -177,7 +180,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             case '\n':
                 continue;
             case '<':
-                ngx_http_no_newlines_handle_tags (reader, ctx);
+                ngx_http_no_newlines_handle_tags (reader, writer, ctx);
                 break;
             default:
                 break;
@@ -186,8 +189,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
 
         case state_tag_pre:
             //ignore newlines while we are displaying pre-formatted text
-            //ngx_http_no_newlines_ignore_preformatted_text (reader);
-            //ctx->state = state_text;
+            ngx_http_no_newlines_ignore_preformatted_text (reader, writer, ctx);
             break;
 
         case state_abort:
@@ -201,30 +203,52 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
 }
 
 static void ngx_http_no_newlines_handle_tags (u_char *reader,
+                                              u_char *writer,
                                               ngx_http_no_newlines_ctx_t *ctx)
 {
+    u_char *t = NULL;
+    int i = 0;
+
+    *writer++ = *reader++; //Write the opening angle and move on.
+    t = reader;
+    if (is_tag_pre (t)) {
+        ctx->state = state_tag_pre;
+        //Write into writer and bring it to closing angle.
+        for (i = 0; i < 3; i++) {
+            *writer++ = *reader++;
+        }
+    }
 }
 
-/*
 static ngx_int_t is_tag_pre (u_char *reader)
 {
-    reader++;
     if (ngx_strncasecmp (reader, (u_char *)"pre", sizeof ("pre" - 1)) == 0) {
         return 1;
     }
-
-    //go back to original location
-    reader -= sizeof ("pre" - 1);
-
     return 0;
 }
 
 
-static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader)
+static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader,
+                                                           u_char *writer,
+                                                           ngx_http_no_newlines_ctx_t *ctx)
 {
+    u_char *t = NULL;
+    int i = 0;
+
     do {
-        while (*reader != '/')
-            reader++;
-    } while (is_tag_pre (reader) != 1);
+        while (*reader != '/') {
+            *writer++ = *reader++;
+        }
+        *writer++ = *reader++; //write the front-slash and move on.
+        t = reader;
+    } while (is_tag_pre (t) != 1);
+
+    //We have found the pre-tag. Write to writer and switch states.
+    for (i = 0; i < 3; i++) {
+        *writer++ = *reader++; //Bring it to closing angle.
+    }
+
+    ctx->state = state_text;
 }
-*/
+
