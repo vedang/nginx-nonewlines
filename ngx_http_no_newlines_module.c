@@ -209,17 +209,13 @@ static void ngx_http_no_newlines_handle_tags (u_char *reader,
 
 static ngx_int_t is_tag_pre (u_char *reader)
 {
-    u_char tagstring[4] = {0};
-
     reader++;
-    ngx_strlow (tagstring, reader, 3);
-
-    if (ngx_strncmp (tagstring, "pre", 3) == 0) {
+    if (ngx_strncasecmp (reader, (u_char *)"pre", sizeof ("pre" - 1)) == 0) {
         return 1;
     }
 
     //go back to original location
-    reader -= 3;
+    reader -= sizeof ("pre" - 1);
 
     return 0;
 }
