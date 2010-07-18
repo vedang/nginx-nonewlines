@@ -33,9 +33,10 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx);
 static void ngx_http_no_newlines_handle_tags (u_char *reader,
                                               ngx_http_no_newlines_ctx_t *ctx);
+/*
 static ngx_int_t is_tag_pre (u_char *reader);
 static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader);
-
+*/
 
 /* Module directives */
 static ngx_command_t  ngx_http_no_newlines_commands[] = {
@@ -185,8 +186,8 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
 
         case state_tag_pre:
             //ignore newlines while we are displaying pre-formatted text
-            ngx_http_no_newlines_ignore_preformatted_text (reader);
-            ctx->state = state_text;
+            //ngx_http_no_newlines_ignore_preformatted_text (reader);
+            //ctx->state = state_text;
             break;
 
         case state_abort:
@@ -202,11 +203,9 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
 static void ngx_http_no_newlines_handle_tags (u_char *reader,
                                               ngx_http_no_newlines_ctx_t *ctx)
 {
-    if (is_tag_pre (reader) == 1) {
-        ctx->state = state_tag_pre;
-    }
 }
 
+/*
 static ngx_int_t is_tag_pre (u_char *reader)
 {
     reader++;
@@ -220,6 +219,7 @@ static ngx_int_t is_tag_pre (u_char *reader)
     return 0;
 }
 
+
 static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader)
 {
     do {
@@ -227,3 +227,4 @@ static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader)
             reader++;
     } while (is_tag_pre (reader) != 1);
 }
+*/
