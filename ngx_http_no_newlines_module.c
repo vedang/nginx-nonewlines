@@ -7,6 +7,19 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+/* A context to store the current state of processing. */
+typedef struct {
+    unsigned char state;
+} ngx_http_no_newlines_ctx_t;
+
+
+/* Enum defining states required */
+typedef enum {
+    state_text = 0,
+    state_abort
+} ngx_http_no_newlines_state_e;
+
+
 /* Setup function for the no_newlines directive */
 static char *ngx_http_no_newlines (ngx_conf_t *cf,
                                    ngx_command_t *cmd,
@@ -76,18 +89,6 @@ static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
 
-/* A context to store the current state of processing. */
-typedef struct {
-    unsigned char state;
-} ngx_http_no_newlines_ctx_t;
-
-
-/* Enum defining states required */
-typedef enum {
-    state_text = 0,
-    state_abort
-} ngx_http_no_newlines_state_e;
-
 /* Function definitions start here */
 static char *ngx_http_no_newlines (ngx_conf_t *cf,
                                    ngx_command_t *cmd,
@@ -103,7 +104,7 @@ static char *ngx_http_no_newlines (ngx_conf_t *cf,
 
 static ngx_int_t ngx_http_no_newlines_handler (ngx_http_request_t *r)
 {
-    ngx_buf_t    *b;
+    //ngx_buf_t    *b; //Not using this right now -VM
     ngx_chain_t   out;
 
     return ngx_http_output_filter(r, &out);
@@ -111,7 +112,7 @@ static ngx_int_t ngx_http_no_newlines_handler (ngx_http_request_t *r)
 
 static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r)
 {
-    ngx_http_strip_ctx_t   *ctx;
+    ngx_http_no_newlines_ctx_t   *ctx;
 
     /* step 1: decide whether to operate */
     if ((r->headers_out.status != NGX_HTTP_OK &&
@@ -187,6 +188,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             break;
 
         case state_abort:
+        default:
             break;
         }
 
