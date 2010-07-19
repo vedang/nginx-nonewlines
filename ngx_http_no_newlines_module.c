@@ -30,10 +30,12 @@ static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf);
 
 /* Worker functions */
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
-                                               ngx_http_no_newlines_ctx_t *ctx);
+                                               ngx_http_no_newlines_ctx_t *ctx,
+                                               ngx_http_request_t *r);
 static void ngx_http_no_newlines_handle_tags (u_char *reader,
                                               u_char *writer,
-                                              ngx_http_no_newlines_ctx_t *ctx);
+                                              ngx_http_no_newlines_ctx_t *ctx,
+                                              ngx_http_request_t *r);
 
 static ngx_int_t is_tag_pre (u_char *reader);
 static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader,
@@ -44,7 +46,7 @@ static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader,
 /* Module directives */
 static ngx_command_t  ngx_http_no_newlines_commands[] = {
     { ngx_string ("no_newlines"),
-      NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
       NULL,
       0,
       0,
@@ -135,7 +137,7 @@ static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r)
 
     ngx_http_clear_content_length(r);
     ngx_http_clear_accept_ranges(r);
-    r->main_filter_need_in_memory = 1; //What does this do? -VM
+    r->main_filter_need_in_memory = 1;
 
     /* step 3: call the next filter */
     return ngx_http_next_header_filter(r);
@@ -154,12 +156,9 @@ static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
         return ngx_http_next_body_filter(r, in);
     }
 
-    /* Set initial state to text */
-    ctx->state = state_text;
-
     /* For each buffer in the chain link, remove all the newlines */
     for (chain_link = in; chain_link; chain_link = chain_link->next) {
-        ngx_http_no_newlines_strip_buffer (chain_link->buf, ctx);
+        ngx_http_no_newlines_strip_buffer (chain_link->buf, ctx, r); //Passing request structure to use for logging.
     }
 
     /* Pass the chain to the next output filter */
@@ -167,10 +166,13 @@ static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
 }
 
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
-                                               ngx_http_no_newlines_ctx_t *ctx)
+                                               ngx_http_no_newlines_ctx_t *ctx,
+                                               ngx_http_request_t *r)
 {
     u_char *reader;
     u_char *writer;
+
+    ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: Entering stripbuffer");
 
     for (writer = buffer->pos, reader = buffer->pos; reader < buffer->last; reader++) {
         switch(ctx->state) {
@@ -180,7 +182,8 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             case '\n':
                 continue;
             case '<':
-                ngx_http_no_newlines_handle_tags (reader, writer, ctx);
+                ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: Entering handletags");
+                ngx_http_no_newlines_handle_tags (reader, writer, ctx, r);
                 break;
             default:
                 break;
@@ -204,12 +207,14 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
 
 static void ngx_http_no_newlines_handle_tags (u_char *reader,
                                               u_char *writer,
-                                              ngx_http_no_newlines_ctx_t *ctx)
+                                              ngx_http_no_newlines_ctx_t *ctx,
+                                              ngx_http_request_t *r)
 {
     u_char *t = NULL;
     int i = 0;
 
     *writer++ = *reader++; //Write the opening angle and move on.
+    ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: 3 chars of tag: %c %c %c", *reader, *(reader + 1), *(reader + 2));
     t = reader;
     if (is_tag_pre (t)) {
         ctx->state = state_tag_pre;
