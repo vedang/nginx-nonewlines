@@ -1,6 +1,7 @@
 /*
  * This NginX module strips the HTML being served by NginX of all newline
- * ('\n', '\r') characters, thereby saving on the bandwidth
+ * ('\n', '\r') and whitespace ('\t' and extra spaces) characters,
+ * thereby saving on the bandwidth required to serve the page
  */
 
 #include <ngx_config.h>
@@ -47,8 +48,7 @@ static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf);
 
 /* Worker functions */
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
-                                               ngx_http_no_newlines_ctx_t *ctx,
-                                               ngx_http_request_t *r);
+                                               ngx_http_no_newlines_ctx_t *ctx);
 
 static ngx_int_t isspace (u_char c);
 
@@ -67,8 +67,8 @@ static ngx_command_t  ngx_http_no_newlines_commands[] = {
 
 /* The Module Context - for managing the configurations */
 static ngx_http_module_t  ngx_http_no_newlines_module_ctx = {
-    NULL,                             /* preconfiguration */
-    ngx_http_no_newlines_filter_init, /* postconfiguration */
+    NULL,                             /* pre-configuration */
+    ngx_http_no_newlines_filter_init, /* post-configuration */
 
     NULL,                             /* create main configuration */
     NULL,                             /* init main configuration */
@@ -198,7 +198,7 @@ static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
 
     /* For each buffer in the chain link, remove all the newlines */
     for (chain_link = in; chain_link; chain_link = chain_link->next) {
-        ngx_http_no_newlines_strip_buffer (chain_link->buf, ctx, r); //Passing request structure to use for logging.
+        ngx_http_no_newlines_strip_buffer (chain_link->buf, ctx);
     }
 
     /* Pass the chain to the next output filter */
@@ -206,15 +206,12 @@ static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
 }
 
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
-                                               ngx_http_no_newlines_ctx_t *ctx,
-                                               ngx_http_request_t *r)
+                                               ngx_http_no_newlines_ctx_t *ctx)
 {
     u_char *reader = NULL;
     u_char *writer = NULL;
     u_char *t = NULL;
     ngx_int_t file_pos = 0, space_eaten = 0;
-
-    ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: Entering stripbuffer");
 
     for (writer = buffer->pos, reader = buffer->pos, file_pos = buffer->file_pos; reader < buffer->last; reader++, file_pos++) {
         switch(ctx->state) {
@@ -256,7 +253,8 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             break;
 
         case state_text_no_compress:
-            // ignore newlines while we are displaying pre-formatted text
+            // ignore newlines and whitespace while we are
+            // displaying pre-formatted text
             // look for SC_ON tag
             t = reader;
             if ((buffer->file_last - file_pos) >= SC_ON_LEN &&
