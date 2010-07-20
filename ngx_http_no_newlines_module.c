@@ -26,9 +26,8 @@ static char *ngx_http_no_newlines_merge_conf (ngx_conf_t *cf,
 
 /* Enum defining states required */
 typedef enum {
-    state_text = 0,
-    state_abort,
-    state_tag_pre
+    state_text_compress = 0,
+    state_text_no_compress
 } ngx_http_no_newlines_state_e;
 
 /* Header filter */
@@ -218,7 +217,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
 
     for (writer = buffer->pos, reader = buffer->pos; reader < buffer->last; reader++) {
         switch(ctx->state) {
-        case state_text:
+        case state_text_compress:
             switch(*reader) {
             case '\r':
             case '\n':
@@ -232,12 +231,11 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             }
             break;
 
-        case state_tag_pre:
+        case state_text_no_compress:
             //ignore newlines while we are displaying pre-formatted text
             ngx_http_no_newlines_ignore_preformatted_text (reader, writer, ctx);
             break;
 
-        case state_abort:
         default:
             break;
         }
