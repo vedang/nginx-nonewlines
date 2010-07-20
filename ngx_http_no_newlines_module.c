@@ -211,15 +211,14 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
     u_char *reader = NULL;
     u_char *writer = NULL;
     u_char *t = NULL;
-    ngx_int_t file_pos = 0, space_eaten = 0;
+    ngx_int_t space_eaten = 0;
 
-    for (writer = buffer->pos, reader = buffer->pos, file_pos = buffer->file_pos; reader < buffer->last; reader++, file_pos++) {
+    for (writer = buffer->pos, reader = buffer->pos; reader < buffer->last; reader++) {
         switch(ctx->state) {
         case state_text_compress:
             // eat space
             while (isspace(*reader)) {
                 reader++;
-                file_pos++;
                 space_eaten = 1;
             }
 
@@ -232,24 +231,19 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             // eat all space after '>'
             if(*reader == '>') {
                 *writer++ = *reader++;
-                file_pos++;
                 while (isspace (*reader)) {
                     reader++;
-                    file_pos++;
                 }
             }
 
-            /*
             // does the next part of the string match the SC_OFF label?
             t = reader;
-            if ((buffer->file_last - file_pos) >= SC_OFF_LEN &&
+            if ((buffer->last - t) >= (u_char) SC_OFF_LEN &&
                 memcmp (t, SC_OFF, SC_OFF_LEN) == 0) {
                 // disable compress, and bypass that part of the string
                 ctx->state = state_text_no_compress;
                 reader += SC_OFF_LEN;
-                file_pos += SC_OFF_LEN;
             }
-            */
             break;
 
         case state_text_no_compress:
@@ -257,12 +251,11 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             // displaying pre-formatted text
             // look for SC_ON tag
             t = reader;
-            if ((buffer->file_last - file_pos) >= SC_ON_LEN &&
-                ngx_strncasecmp (t, (u_char *)SC_ON, SC_ON_LEN) == 0) {
+            if ((buffer->last - t) >= (u_char) SC_ON_LEN &&
+                memcmp (t, SC_ON, SC_ON_LEN) == 0) {
                 // enable compress, and bypass that part of the string
                 ctx->state = state_text_compress;
                 reader += SC_ON_LEN;
-                file_pos += SC_ON_LEN;
             }
             break;
 
