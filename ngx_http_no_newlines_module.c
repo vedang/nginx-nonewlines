@@ -7,6 +7,13 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+/* We expect these things in the parsed HTML */
+#define SC_OFF "<!--SC_OFF-->"
+#define SC_ON  "<!--SC_ON-->"
+#define SC_OFF_LEN ngx_strlen (SC_OFF)
+#define SC_ON_LEN  ngx_strlen (SC_ON)
+
+
 /* A context to store the current state of processing. */
 typedef struct {
     unsigned char state;
@@ -42,16 +49,8 @@ static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf);
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx,
                                                ngx_http_request_t *r);
-static void ngx_http_no_newlines_handle_tags (u_char *reader,
-                                              u_char *writer,
-                                              ngx_http_no_newlines_ctx_t *ctx,
-                                              ngx_http_request_t *r);
 
-static ngx_int_t is_tag_pre (u_char *reader);
-static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader,
-                                                           u_char *writer,
-                                                           ngx_http_no_newlines_ctx_t *ctx);
-
+static ngx_int_t isspace (u_char c);
 
 /* Module directives */
 static ngx_command_t  ngx_http_no_newlines_commands[] = {
@@ -210,90 +209,82 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx,
                                                ngx_http_request_t *r)
 {
-    u_char *reader;
-    u_char *writer;
+    u_char *reader = NULL;
+    u_char *writer = NULL;
+    u_char *t = NULL;
+    ngx_int_t file_pos = 0, space_eaten = 0;
 
     ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: Entering stripbuffer");
 
-    for (writer = buffer->pos, reader = buffer->pos; reader < buffer->last; reader++) {
+    for (writer = buffer->pos, reader = buffer->pos, file_pos = buffer->file_pos; reader < buffer->last; reader++, file_pos++) {
         switch(ctx->state) {
         case state_text_compress:
-            switch(*reader) {
-            case '\r':
-            case '\n':
-                continue;
-            case '<':
-                ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: Entering handletags");
-                ngx_http_no_newlines_handle_tags (reader, writer, ctx, r);
-                break;
-            default:
-                break;
+            // eat space
+            while (isspace(*reader)) {
+                reader++;
+                file_pos++;
+                space_eaten = 1;
             }
+
+            // unless next char is '<', add one space for all eaten
+            if (space_eaten && *reader != '<') {
+                *writer++ = ' ';
+            }
+            space_eaten = 0;
+
+            // eat all space after '>'
+            if(*reader == '>') {
+                *writer++ = *reader++;
+                file_pos++;
+                while (isspace (*reader)) {
+                    reader++;
+                    file_pos++;
+                }
+            }
+
+            /*
+            // does the next part of the string match the SC_OFF label?
+            t = reader;
+            if ((buffer->file_last - file_pos) >= SC_OFF_LEN &&
+                memcmp (t, SC_OFF, SC_OFF_LEN) == 0) {
+                // disable compress, and bypass that part of the string
+                ctx->state = state_text_no_compress;
+                reader += SC_OFF_LEN;
+                file_pos += SC_OFF_LEN;
+            }
+            */
             break;
 
         case state_text_no_compress:
-            //ignore newlines while we are displaying pre-formatted text
-            ngx_http_no_newlines_ignore_preformatted_text (reader, writer, ctx);
+            // ignore newlines while we are displaying pre-formatted text
+            // look for SC_ON tag
+            t = reader;
+            if ((buffer->file_last - file_pos) >= SC_ON_LEN &&
+                ngx_strncasecmp (t, (u_char *)SC_ON, SC_ON_LEN) == 0) {
+                // enable compress, and bypass that part of the string
+                ctx->state = state_text_compress;
+                reader += SC_ON_LEN;
+                file_pos += SC_ON_LEN;
+            }
             break;
 
         default:
             break;
         }
 
-        *writer++ = *reader;
+        if (reader < buffer->last) {
+            *writer++ = *reader;
+        }
     }
     buffer->last = writer;
 }
 
-static void ngx_http_no_newlines_handle_tags (u_char *reader,
-                                              u_char *writer,
-                                              ngx_http_no_newlines_ctx_t *ctx,
-                                              ngx_http_request_t *r)
+static ngx_int_t isspace (u_char c)
 {
-    u_char *t = NULL;
-    int i = 0;
-
-    *writer++ = *reader++; //Write the opening angle and move on.
-    ngx_log_error (NGX_LOG_ERR, r->connection->log, 0, "VM: 3 chars of tag: %c %c %c", *reader, *(reader + 1), *(reader + 2));
-    t = reader;
-    if (is_tag_pre (t)) {
-        ctx->state = state_tag_pre;
-        //Write into writer and bring it to closing angle.
-        for (i = 0; i < 3; i++) {
-            *writer++ = *reader++;
-        }
-    }
-}
-
-static ngx_int_t is_tag_pre (u_char *reader)
-{
-    if (ngx_strncasecmp (reader, (u_char *)"pre", sizeof ("pre" - 1)) == 0) {
+    if (c == '\n' ||
+        c == '\r' ||
+        c == '\t' ||
+        c == ' ')
         return 1;
-    }
     return 0;
 }
-
-
-static void ngx_http_no_newlines_ignore_preformatted_text (u_char *reader,
-                                                           u_char *writer,
-                                                           ngx_http_no_newlines_ctx_t *ctx)
-{
-    u_char *t = NULL;
-    int i = 0;
-
-    do {
-        while (*reader != '/') {
-            *writer++ = *reader++;
-        }
-        *writer++ = *reader++; //write the front-slash and move on.
-        t = reader;
-    } while (is_tag_pre (t) != 1);
-
-    //We have found the pre-tag. Write to writer and switch states.
-    for (i = 0; i < 3; i++) {
-        *writer++ = *reader++; //Bring it to closing angle.
-    }
-
-    ctx->state = state_text;
-}
-
