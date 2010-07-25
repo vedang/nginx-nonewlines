@@ -11,8 +11,8 @@
 /* We expect these things in the parsed HTML */
 #define SC_OFF "<!--SC_OFF-->"
 #define SC_ON  "<!--SC_ON-->"
-#define SC_OFF_LEN ngx_strlen (SC_OFF)
-#define SC_ON_LEN  ngx_strlen (SC_ON)
+#define SC_OFF_LEN sizeof (SC_OFF - 1)
+#define SC_ON_LEN  sizeof (SC_ON - 1)
 
 
 /* A context to store the current state of processing. */
@@ -239,7 +239,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             // does the next part of the string match the SC_OFF label?
             t = reader;
             if ((buffer->last - t) >= (u_char) SC_OFF_LEN &&
-                memcmp (t, SC_OFF, SC_OFF_LEN) == 0) {
+                ngx_strncasecmp (t, (u_char *) SC_OFF, SC_OFF_LEN) == 0) {
                 // disable compress, and bypass that part of the string
                 ctx->state = state_text_no_compress;
                 reader += SC_OFF_LEN;
@@ -252,7 +252,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             // look for SC_ON tag
             t = reader;
             if ((buffer->last - t) >= (u_char) SC_ON_LEN &&
-                memcmp (t, SC_ON, SC_ON_LEN) == 0) {
+                ngx_strncasecmp (t, (u_char *) SC_ON, SC_ON_LEN) == 0) {
                 // enable compress, and bypass that part of the string
                 ctx->state = state_text_compress;
                 reader += SC_ON_LEN;
