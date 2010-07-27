@@ -8,12 +8,12 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-/* We expect these things in the parsed HTML */
+/* We expect these things in the parsed HTML
 #define SC_OFF "<!--SC_OFF-->"
 #define SC_ON  "<!--SC_ON-->"
 #define SC_OFF_LEN sizeof (SC_OFF - 1)
 #define SC_ON_LEN  sizeof (SC_ON - 1)
-
+*/
 
 /* A context to store the current state of processing. */
 typedef struct {
@@ -50,7 +50,7 @@ static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf);
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx);
 
-static ngx_int_t isspace (u_char c);
+static ngx_int_t isaspace (u_char c);
 
 /* Module directives */
 static ngx_command_t  ngx_http_no_newlines_commands[] = {
@@ -212,12 +212,19 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
     u_char *writer = NULL;
     u_char *t = NULL;
     ngx_int_t space_eaten = 0;
+    ngx_int_t SC_OFF_LEN = 0;
+    ngx_int_t SC_ON_LEN = 0;
+    u_char SC_OFF[] = "<!--SC_OFF-->";
+    u_char SC_ON[]  = "<!--SC_ON-->";
+
+    SC_OFF_LEN = ngx_strlen (SC_OFF);
+    SC_ON_LEN = ngx_strlen (SC_ON);
 
     for (writer = buffer->pos, reader = buffer->pos; reader < buffer->last; reader++) {
         switch(ctx->state) {
         case state_text_compress:
             // eat space
-            while (isspace(*reader)) {
+            while (isaspace(*reader)) {
                 reader++;
                 space_eaten = 1;
             }
@@ -231,15 +238,14 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             // eat all space after '>'
             if(*reader == '>') {
                 *writer++ = *reader++;
-                while (isspace (*reader)) {
+                while (isaspace (*reader)) {
                     reader++;
                 }
             }
 
             // does the next part of the string match the SC_OFF label?
             t = reader;
-            if ((buffer->last - t) >= (u_char) SC_OFF_LEN &&
-                ngx_strncasecmp (t, (u_char *) SC_OFF, SC_OFF_LEN) == 0) {
+            if (ngx_strncasecmp (t, SC_OFF, SC_OFF_LEN) == 0) {
                 // disable compress, and bypass that part of the string
                 ctx->state = state_text_no_compress;
                 reader += SC_OFF_LEN;
@@ -251,8 +257,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
             // displaying pre-formatted text
             // look for SC_ON tag
             t = reader;
-            if ((buffer->last - t) >= (u_char) SC_ON_LEN &&
-                ngx_strncasecmp (t, (u_char *) SC_ON, SC_ON_LEN) == 0) {
+            if (ngx_strncasecmp (t, SC_ON, SC_ON_LEN) == 0) {
                 // enable compress, and bypass that part of the string
                 ctx->state = state_text_compress;
                 reader += SC_ON_LEN;
@@ -270,7 +275,7 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
     buffer->last = writer;
 }
 
-static ngx_int_t isspace (u_char c)
+static ngx_int_t isaspace (u_char c)
 {
     if (c == '\n' ||
         c == '\r' ||
