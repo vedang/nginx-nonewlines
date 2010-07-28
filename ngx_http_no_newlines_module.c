@@ -8,13 +8,6 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-/* We expect these things in the parsed HTML
-#define SC_OFF "<!--SC_OFF-->"
-#define SC_ON  "<!--SC_ON-->"
-#define SC_OFF_LEN sizeof (SC_OFF - 1)
-#define SC_ON_LEN  sizeof (SC_ON - 1)
-*/
-
 /* A context to store the current state of processing. */
 typedef struct {
     unsigned char state;
