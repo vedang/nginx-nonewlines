@@ -1,0 +1,8 @@
+* TODO Various MIME types should be supported, and the user should be able to specify a list of MIME types for which the module should be active.
+* FIXME Spaces eaten before an HREF tag are not compensated for.
+Currently,
+     This is a <a href="...">link</a>
+gets served as
+     This is a<a href="...">link</a>
+because the space eaten before the link is not compensated for.
+This should be fixed by representing genuine spaces as &#32 instead of ' '
