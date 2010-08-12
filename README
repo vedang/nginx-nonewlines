@@ -1,3 +1,3 @@
-This NginX module strips the page of all newlines ('\n', '\r' and all combinations thereof) before serving it.
+This NginX module strips the page of all newlines ('\n', '\r') and extra white-space ('\t' and extra ' ') before serving it. It follow the 'reddit' method of stripping out space everywhere except in areas marked between HTML comments <!--SC_OFF--> and <!--SC_ON-->
 
-Evan Miller has written an excellent guide on how to write nginx modules. It can be found here: http://www.evanmiller.org/nginx-modules-guide.html
+If you wish to learn about writting nginx-modules, Evan Miller has written an excellent guide which can be found here: http://www.evanmiller.org/nginx-modules-guide.html
