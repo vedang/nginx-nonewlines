@@ -9,38 +9,34 @@
 #include <ngx_http.h>
 
 /* Declarations */
-/* A context to store the current state of processing. */
+
+
 typedef struct {
         unsigned char state;
 } ngx_http_no_newlines_ctx_t;
 
-/* A flag to enable or disable module functionality. */
 typedef struct {
-        ngx_flag_t enable;
+        ngx_flag_t enable; /* A flag to enable or disable module functionality. */
 } ngx_http_no_newlines_conf_t;
 
-/* functions to create and merge configurations.
-   These handle the enable flag */
-static void *ngx_http_no_newlines_create_conf (ngx_conf_t *cf);
-static char *ngx_http_no_newlines_merge_conf (ngx_conf_t *cf,
-                                              void *parent,
-                                              void *child);
-
-/* Enum defining states required */
 typedef enum {
         state_text_compress = 0,
         state_text_no_compress
 } ngx_http_no_newlines_state_e;
 
+
+static void *ngx_http_no_newlines_create_conf (ngx_conf_t *cf);
+static char *ngx_http_no_newlines_merge_conf (ngx_conf_t *cf,
+                                              void *parent,
+                                              void *child);
 static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r);
 static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
                                                    ngx_chain_t *in);
 static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf);
-
-/* Worker functions */
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx);
 static ngx_int_t ngx_is_space (u_char* c);
+
 
 /* Module directives */
 static ngx_command_t  ngx_http_no_newlines_commands[] = {
@@ -94,6 +90,7 @@ static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
 /* Function definitions start here */
 
+
 static void *ngx_http_no_newlines_create_conf (ngx_conf_t *cf)
 {
         ngx_http_no_newlines_conf_t *conf;
@@ -108,6 +105,7 @@ static void *ngx_http_no_newlines_create_conf (ngx_conf_t *cf)
         return conf;
 }
 
+
 static char *ngx_http_no_newlines_merge_conf (ngx_conf_t *cf,
                                               void *parent,
                                               void *child)
@@ -119,6 +117,7 @@ static char *ngx_http_no_newlines_merge_conf (ngx_conf_t *cf,
 
         return NGX_CONF_OK;
 }
+
 
 static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf)
 {
@@ -134,12 +133,12 @@ static ngx_int_t ngx_http_no_newlines_filter_init (ngx_conf_t *cf)
 
 static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r)
 {
-        ngx_http_no_newlines_ctx_t   *ctx;  // to maintain state
-        ngx_http_no_newlines_conf_t  *conf; // to check whether module is enabled or not
+        ngx_http_no_newlines_ctx_t   *ctx;  /* to maintain state */
+        ngx_http_no_newlines_conf_t  *conf; /* to check whether module is enabled or not */
 
         conf = ngx_http_get_module_loc_conf (r, ngx_http_no_newlines_module);
 
-        // step 1: decide whether to operate
+        /* step 1: decide whether to operate */
         if ((r->headers_out.status != NGX_HTTP_OK &&
              r->headers_out.status != NGX_HTTP_FORBIDDEN &&
              r->headers_out.status != NGX_HTTP_NOT_FOUND) ||
@@ -148,12 +147,10 @@ static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r)
             (r->headers_out.content_encoding &&
              r->headers_out.content_encoding->value.len) ||
             conf->enable == 0) {
-                // No need to filter
                 return ngx_http_next_header_filter(r);
         }
 
         if (ngx_strncasecmp(r->headers_out.content_type.data, (u_char *)"text/html", sizeof("text/html" - 1)) != 0) {
-                // No need to filter
                 return ngx_http_next_header_filter(r);
         }
 
@@ -172,6 +169,7 @@ static ngx_int_t ngx_http_no_newlines_header_filter (ngx_http_request_t *r)
         /* step 3: call the next filter */
         return ngx_http_next_header_filter(r);
 }
+
 
 static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
                                                    ngx_chain_t *in)
@@ -195,6 +193,7 @@ static ngx_int_t ngx_http_no_newlines_body_filter (ngx_http_request_t *r,
         return ngx_http_next_body_filter(r, in);
 }
 
+
 static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                                ngx_http_no_newlines_ctx_t *ctx)
 {
@@ -213,19 +212,17 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
         for (writer = buffer->pos, reader = buffer->pos; reader < buffer->last; reader++) {
                 switch(ctx->state) {
                 case state_text_compress:
-                        // eat space
                         while (ngx_is_space (reader)) {
                                 reader++;
                                 space_eaten = 1;
                         }
 
-                        // unless next char is '<', add one space for all eaten
+                        /* unless next char is '<', add one space for all eaten */
                         if (space_eaten && *reader != '<') {
                                 *writer++ = ' ';
                         }
                         space_eaten = 0;
 
-                        // eat all space after '>'
                         if(*reader == '>') {
                                 *writer++ = *reader++;
                                 while (ngx_is_space (reader)) {
@@ -233,22 +230,20 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                                 }
                         }
 
-                        // does the next part of the string match the SC_OFF label?
+                        /* does the next part of the string match the SC_OFF label? */
                         t = reader;
                         if (ngx_strncasecmp (t, SC_OFF, SC_OFF_LEN) == 0) {
-                                // disable compress, and bypass that part of the string
                                 ctx->state = state_text_no_compress;
                                 reader += SC_OFF_LEN;
                         }
                         break;
 
                 case state_text_no_compress:
-                        // ignore newlines and whitespace while we are
-                        // displaying pre-formatted text
-                        // look for SC_ON tag
+                        /* ignore newlines and whitespace while we are */
+                        /* displaying pre-formatted text */
+                        /* look for SC_ON tag */
                         t = reader;
                         if (ngx_strncasecmp (t, SC_ON, SC_ON_LEN) == 0) {
-                                // enable compress, and bypass that part of the string
                                 ctx->state = state_text_compress;
                                 reader += SC_ON_LEN;
                         }
@@ -265,13 +260,16 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
         buffer->last = writer;
 }
 
+
 static ngx_int_t ngx_is_space (u_char* c)
 {
         if (*c == '\n' ||
             *c == '\r' ||
-            *c == '\t')
+            *c == '\t' ||
+            (*c == ' ' && *(c + 1) == ' ')) {
+                /* Leave the last space so that links on the page don't */
+                /* get messed up */
                 return 1;
-        if (*c == ' ' && *(c + 1) == ' ')
-                return 1;
+        }
         return 0;
 }
