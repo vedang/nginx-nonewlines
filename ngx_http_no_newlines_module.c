@@ -213,11 +213,10 @@ static void ngx_http_no_newlines_strip_buffer (ngx_buf_t *buffer,
                         if(ngx_is_space(reader)) {
                             space_eaten = 1;
                             reader++;
+                            while (reader < buffer->last && ngx_is_space (reader)) reader++;
+                             if(reader >= buffer->last) /* FIXME: Does it make sense to strip if buffer isn't sanitized? */
+                                goto out;
                         }
-                        while (reader < buffer->last && ngx_is_space (reader)) reader++;
-
-                        if(reader >= buffer->last) /* FIXME: Does it make sense to strip if buffer isn't sanitized? */
-                            goto out;
 
                         /* unless next char is '<', add one space for all eaten */
                         if (space_eaten && *reader != '<') {
